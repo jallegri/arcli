@@ -127,11 +127,16 @@ arcli sample load citibike
 arcli db list
 arcli measurement list --database metrics
 arcli auth whoami
+arcli ingest buffer show
+arcli ingest buffer set --max-buffer-age-ms 30000
+arcli ingest buffer reset
 arcli compaction status
 arcli retention list
 arcli backup create --wait
 arcli logs --level warn --since 6h
 ```
+
+`ingest buffer set` changes Arc's process-wide buffer thresholds immediately and persists them across restarts. `ingest buffer reset` removes the persisted override and restores the server's startup configuration. Both commands require an admin token; configure each Arc node separately in a multi-node deployment.
 
 The command tree also covers API tokens, continuous queries, schedulers, predicate deletes, backups, cluster membership, and compaction. Run `arcli --help` or `arcli <command> --help` for the complete command reference.
 

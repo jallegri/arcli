@@ -6,7 +6,8 @@
 // `compaction`; PR7 added `retention`, `cq`, `scheduler`; PR8 added
 // `delete` and `backup`; PR9 added `logs` and `import stats`; PR10a added
 // build metadata in --version and shell completion (completion.go);
-// PR11 added `sample` (sample.go + internal/sample).
+// PR11 added `sample` (sample.go + internal/sample); `ingest` administers
+// runtime buffer limits.
 package commands
 
 import (
@@ -88,6 +89,7 @@ First-time setup:
 		newBackupCmd(),
 		newLogsCmd(),
 		newSampleCmd(),
+		newIngestCmd(),
 	)
 	installCompletions(root)
 	return root
