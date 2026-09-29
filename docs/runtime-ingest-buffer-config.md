@@ -25,6 +25,10 @@ arcli ingest buffer reset
 
 `set` requires a threshold or `--persistent true`. Persistence defaults to true for compatibility. An omitted threshold keeps its current effective value. Supplied values must be greater than zero; Arc also rejects buffer ages too large to represent as a duration. `reset` calls Arc's `DELETE /api/v1/config/runtime/ingest` endpoint; it does not restart Arc.
 
+## Configuration scope and buffers
+
+The thresholds configured by `set` are shared by one Arc process and apply independently to each logical ingest buffer, keyed by database and measurement. `max_buffer_size` is not a process-wide record cap, so multiple active measurements can collectively hold more records than the configured value. Arc's buffer shards partition those per-measurement buffers to reduce lock contention. Flush workers process queued flush tasks; they do not create or own separate ingest buffers or threshold settings.
+
 ## Connection and permissions
 
 The commands use the same connection selection as other `arcli` commands: a saved connection profile or the `ARC_ENDPOINT` and `ARC_TOKEN` environment variables. When Arc authentication is enabled, the token must have administrator privileges.
