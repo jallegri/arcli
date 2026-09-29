@@ -25,8 +25,9 @@ type RuntimeIngestConfig struct {
 // RuntimeIngestConfigPatch contains only the thresholds the caller wants to
 // change. At least one field must be provided.
 type RuntimeIngestConfigPatch struct {
-	MaxBufferSize  *int `json:"max_buffer_size,omitempty"`
-	MaxBufferAgeMS *int `json:"max_buffer_age_ms,omitempty"`
+	MaxBufferSize  *int  `json:"max_buffer_size,omitempty"`
+	MaxBufferAgeMS *int  `json:"max_buffer_age_ms,omitempty"`
+	Persistent     *bool `json:"persistent,omitempty"`
 }
 
 // RuntimeIngestConfig calls GET /api/v1/config/runtime/ingest (admin).
@@ -45,7 +46,8 @@ func (c *Client) RuntimeIngestConfig(ctx context.Context) (*RuntimeIngestConfig,
 
 // PatchRuntimeIngestConfig calls PATCH /api/v1/config/runtime/ingest (admin).
 func (c *Client) PatchRuntimeIngestConfig(ctx context.Context, patch RuntimeIngestConfigPatch) (*RuntimeIngestConfig, error) {
-	if patch.MaxBufferSize == nil && patch.MaxBufferAgeMS == nil {
+	persistOnly := patch.Persistent != nil && *patch.Persistent
+	if patch.MaxBufferSize == nil && patch.MaxBufferAgeMS == nil && !persistOnly {
 		return nil, fmt.Errorf("provide at least one runtime ingest setting")
 	}
 	if patch.MaxBufferSize != nil && *patch.MaxBufferSize <= 0 {
@@ -64,6 +66,14 @@ func (c *Client) PatchRuntimeIngestConfig(ctx context.Context, patch RuntimeInge
 	}
 	out.Raw = body
 	return &out, nil
+}
+
+// ForEndpoint creates a client with the same credentials and transport
+// settings pointed at another Arc node.
+func (c *Client) ForEndpoint(endpoint string) (*Client, error) {
+	cfg := c.cfg
+	cfg.Endpoint = endpoint
+	return New(cfg)
 }
 
 // ResetRuntimeIngestConfig calls DELETE /api/v1/config/runtime/ingest (admin)

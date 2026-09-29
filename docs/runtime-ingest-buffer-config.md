@@ -1,6 +1,6 @@
 # Runtime ingest buffer commands
 
-`arcli` provides commands to inspect and change Arc's runtime ingest buffer limits through the administrator API. Arc applies a change to the current process and persists it so the values return after an Arc restart.
+`arcli` provides commands to inspect and change Arc's runtime ingest buffer limits through the administrator API. By default, Arc applies and persists a change so the values return after restart. Use `--persistent false` for a process-only change.
 
 ## Commands
 
@@ -11,13 +11,19 @@ arcli ingest buffer show
 # Change either limit or both
 arcli ingest buffer set --max-buffer-size 200000
 arcli ingest buffer set --max-buffer-age-ms 30000
-arcli ingest buffer set --max-buffer-size 200000 --max-buffer-age-ms 30000
+arcli ingest buffer set --max-buffer-size 200000 --max-buffer-age-ms 30000 --persistent true
+
+# Persist the currently active values without changing thresholds
+arcli ingest buffer set --persistent true
+
+# Apply a value until Arc restarts
+arcli ingest buffer set --max-buffer-age-ms 15000 --persistent false
 
 # Remove the saved override and restore Arc's startup values
 arcli ingest buffer reset
 ```
 
-`set` requires at least one flag. An omitted setting keeps its current effective value. Supplied values must be greater than zero; Arc also rejects buffer ages too large to represent as a duration. `reset` calls Arc's `DELETE /api/v1/config/runtime/ingest` endpoint; it does not restart Arc.
+`set` requires a threshold or `--persistent true`. Persistence defaults to true for compatibility. An omitted threshold keeps its current effective value. Supplied values must be greater than zero; Arc also rejects buffer ages too large to represent as a duration. `reset` calls Arc's `DELETE /api/v1/config/runtime/ingest` endpoint; it does not restart Arc.
 
 ## Connection and permissions
 
@@ -31,7 +37,7 @@ docker compose exec arcli arcli ingest buffer set --max-buffer-size 200000 --max
 docker compose exec arcli arcli ingest buffer reset
 ```
 
-The settings are process-local. In a multi-node deployment, target each Arc node separately; `arcli` does not fan out or replicate the request.
+In a cluster, `arcli` requires every node to report healthy, reads each node's current settings, then applies the change to every node. If a request fails partway through, it attempts to restore settings on nodes already changed and reports rollback failures. Each Arc node persists the override in its own metadata SQLite database. Direct API calls remain process-local.
 
 ## Output
 
@@ -43,7 +49,7 @@ arcli ingest buffer set --max-buffer-age-ms 30000 --output json
 arcli ingest buffer reset --output json
 ```
 
-Arc reports `source: "persistent_override"` while an override exists and `source: "startup_config"` after reset. `persistent` reports whether Arc has a saved override.
+Arc reports `source: "persistent_override"` while an override exists, `source: "runtime_override"` for process-only changes, and `source: "startup_config"` after reset. `persistent` reports whether Arc has a saved override.
 
 ## Related implementation
 
