@@ -136,7 +136,7 @@ arcli backup create --wait
 arcli logs --level warn --since 6h
 ```
 
-`ingest buffer set` changes Arc's process-wide buffer thresholds immediately and persists them across restarts. `ingest buffer reset` removes the persisted override and restores the server's startup configuration. When Arc authentication is enabled, these commands require an admin token; configure each Arc node separately in a multi-node deployment.
+`ingest buffer set` changes Arc's process-wide buffer thresholds immediately and persists them across restarts by default. Use `--persistent false` for a process-only change. `ingest buffer reset` removes the persisted override and restores the server's startup configuration. When Arc authentication is enabled, these commands require an admin token. In a cluster, `arcli` preflights every node and coordinates the change across healthy nodes; direct API calls remain local to the addressed node.
 
 See the [runtime ingest buffer command guide](./docs/runtime-ingest-buffer-config.md) for flags, connection setup, output formats, persistence behavior, and Compose examples.
 

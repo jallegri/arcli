@@ -37,7 +37,13 @@ docker compose exec arcli arcli ingest buffer set --max-buffer-size 200000 --max
 docker compose exec arcli arcli ingest buffer reset
 ```
 
-In a cluster, `arcli` requires every node to report healthy, reads each node's current settings, then applies the change to every node. If a request fails partway through, it attempts to restore settings on nodes already changed and reports rollback failures. Each Arc node persists the override in its own metadata SQLite database. Direct API calls remain process-local.
+In a cluster, `arcli` requires every node to report healthy, reads each node's current settings, then applies the change to every node. This is coordinated fan-out, not Raft replication or a distributed transaction. If a request fails partway through, it attempts to restore settings on nodes that may have changed, including the node whose request returned an error because the server may have committed before the connection failed. Rollback is best-effort; rollback failures are reported and can leave a partial update that an operator must reconcile. Each Arc node persists the override in its own metadata SQLite database. Direct API calls remain process-local and do not contact peers.
+
+## Ingest write-path cost
+
+Arc checks the configured size threshold once per buffered Arrow batch, not once per record. That check existed before runtime reconfiguration; the runtime API replaces the immutable startup-field read with one atomic in-memory load per batch so a change can take effect without rebuilding the writer. Ingest writes do not read environment variables, `arc.toml`, SQLite, or the API. The persistent SQLite read happens at startup, and a persistent write happens only when an administrator changes the setting.
+
+The age threshold is consumed by Arc's background flusher, not polled by each ingest write. Changing it signals the flusher to recalculate its deadline. The atomic load replaces an ordinary field read; its workload-specific cost has not been quantified by a benchmark.
 
 ## Output
 
@@ -55,10 +61,10 @@ Arc reports `source: "persistent_override"` while an override exists, `source: "
 
 `arcli ingest buffer show` reads Arc's current process values directly. It does not trigger the collector's next telemetry sample, flush Arc's buffer, or refresh Grafana. A Grafana panel backed by stored telemetry can therefore lag behind `show` after a setting changes.
 
-In the Arc Wikimedia lab, the collector samples the runtime API every 10 seconds, Arc may hold the resulting telemetry row until its configured buffer age expires or the size threshold is reached, and the buffer dashboard refreshes every 15 seconds. Estimate the normal delay as the sum of those intervals. The lab's default 30-second buffer age gives roughly 55 seconds; a 5-second age gives roughly 30 seconds. This is an estimate, not a guarantee; errors and queueing can add time. The collector's `FLUSH_SECONDS` applies to source batches, not the runtime configuration sampling loop. See the [Arc runtime buffer guide](https://github.com/jallegri/arc/blob/codex/persist-ingest-buffer/docs/runtime-ingest-buffer-config.md#observability-delay) for details.
+In the Arc Wikimedia lab, the collector samples the runtime API every 10 seconds, Arc may hold the resulting telemetry row until its configured buffer age expires or the size threshold is reached, and the buffer dashboard refreshes every 15 seconds. Estimate the normal delay as the sum of those intervals. The lab's default 30-second buffer age gives roughly 55 seconds; a 5-second age gives roughly 30 seconds. This is an estimate, not a guarantee; errors and queueing can add time. The collector's `FLUSH_SECONDS` applies to source batches, not the runtime configuration sampling loop. Running `show` reads live process values and does not force this telemetry path. See the [Arc runtime buffer guide](https://github.com/Basekick-Labs/arc/blob/main/docs/runtime-ingest-buffer-config.md#observability-delay) for details.
 
 ## Related implementation
 
 - `internal/commands/ingest.go` defines the `show`, `set`, and `reset` commands.
 - `internal/client/runtime_ingest.go` implements the HTTP calls and client-side validation.
-- Arc's API and persistence behavior are documented in the [Arc runtime ingest buffer guide](https://github.com/jallegri/arc/blob/codex/persist-ingest-buffer/docs/runtime-ingest-buffer-config.md).
+- Arc's API and persistence behavior are documented in the [Arc runtime ingest buffer guide](https://github.com/Basekick-Labs/arc/blob/main/docs/runtime-ingest-buffer-config.md).
