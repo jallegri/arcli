@@ -51,6 +51,12 @@ arcli ingest buffer reset --output json
 
 Arc reports `source: "persistent_override"` while an override exists, `source: "runtime_override"` for process-only changes, and `source: "startup_config"` after reset. `persistent` reports whether Arc has a saved override.
 
+## Grafana update delay
+
+`arcli ingest buffer show` reads Arc's current process values directly. It does not trigger the collector's next telemetry sample, flush Arc's buffer, or refresh Grafana. A Grafana panel backed by stored telemetry can therefore lag behind `show` after a setting changes.
+
+In the Arc Wikimedia lab, the collector samples the runtime API every 10 seconds, Arc may hold the resulting telemetry row until its configured buffer age expires or the size threshold is reached, and the buffer dashboard refreshes every 15 seconds. Estimate the normal delay as the sum of those intervals. The lab's default 30-second buffer age gives roughly 55 seconds; a 5-second age gives roughly 30 seconds. This is an estimate, not a guarantee; errors and queueing can add time. The collector's `FLUSH_SECONDS` applies to source batches, not the runtime configuration sampling loop. See the [Arc runtime buffer guide](https://github.com/jallegri/arc/blob/codex/persist-ingest-buffer/docs/runtime-ingest-buffer-config.md#observability-delay) for details.
+
 ## Related implementation
 
 - `internal/commands/ingest.go` defines the `show`, `set`, and `reset` commands.
